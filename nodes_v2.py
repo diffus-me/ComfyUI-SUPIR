@@ -3,6 +3,7 @@ import torch
 from omegaconf import OmegaConf
 import comfy.utils
 import comfy.model_management as mm
+import execution_context
 import folder_paths
 import torch.cuda
 import torch.nn.functional as F
@@ -652,10 +653,10 @@ If a list of captions is given and it matches the incoming image batch, each ima
     
 class SUPIR_model_loader:
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(s, context: execution_context.ExecutionContext):
         return {"required": {
-            "supir_model": (folder_paths.get_filename_list("checkpoints"),),
-            "sdxl_model": (folder_paths.get_filename_list("checkpoints"),),
+            "supir_model": (folder_paths.get_filename_list(context, "checkpoints"),),
+            "sdxl_model": (folder_paths.get_filename_list(context, "checkpoints"),),
             "fp8_unet": ("BOOLEAN", {"default": False}),
             "diffusion_dtype": (
                     [
@@ -667,6 +668,9 @@ class SUPIR_model_loader:
                         "default": 'auto'
                     }),
             },
+            "hidden": {
+                "context": "EXECUTION_CONTEXT"
+            }
         }
 
     RETURN_TYPES = ("SUPIRMODEL", "SUPIRVAE")
@@ -678,12 +682,12 @@ Old loader, not recommended to be used.
 Loads the SUPIR model and the selected SDXL model and merges them.
 """
 
-    def process(self, supir_model, sdxl_model, diffusion_dtype, fp8_unet):
+    def process(self, supir_model, sdxl_model, diffusion_dtype, fp8_unet, context: execution_context.ExecutionContext=None):
         device = mm.get_torch_device()
         mm.unload_all_models()
 
-        SUPIR_MODEL_PATH = folder_paths.get_full_path("checkpoints", supir_model)
-        SDXL_MODEL_PATH = folder_paths.get_full_path("checkpoints", sdxl_model)
+        SUPIR_MODEL_PATH = folder_paths.get_full_path(context, "checkpoints", supir_model)
+        SDXL_MODEL_PATH = folder_paths.get_full_path(context, "checkpoints", sdxl_model)
 
         config_path = os.path.join(script_directory, "options/SUPIR_v0.yaml")
         clip_config_path = os.path.join(script_directory, "configs/clip_vit_config.json")
@@ -805,12 +809,12 @@ Loads the SUPIR model and the selected SDXL model and merges them.
 
 class SUPIR_model_loader_v2:
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(s, context: execution_context.ExecutionContext):
         return {"required": {
             "model" :("MODEL",),
             "clip": ("CLIP",),
             "vae": ("VAE",),
-            "supir_model": (folder_paths.get_filename_list("checkpoints"),),
+            "supir_model": (folder_paths.get_filename_list(context, "checkpoints"),),
             "fp8_unet": ("BOOLEAN", {"default": False}),
             "diffusion_dtype": (
                     [
@@ -824,6 +828,9 @@ class SUPIR_model_loader_v2:
             },
             "optional": {
                 "high_vram": ("BOOLEAN", {"default": False}),
+            },
+            "hidden": {
+                "context": "EXECUTION_CONTEXT"
             }
         }
 
@@ -839,7 +846,7 @@ fp8_unet casts the unet weights to torch.float8_e4m3fn, which saves a lot of VRA
 high_vram: uses Accelerate to load weights to GPU, slightly faster model loading.
 """
 
-    def process(self, supir_model, diffusion_dtype, fp8_unet, model, clip, vae, high_vram=False):
+    def process(self, supir_model, diffusion_dtype, fp8_unet, model, clip, vae, high_vram=False, context: execution_context.ExecutionContext = None):
         if high_vram:
             device = mm.get_torch_device()
         else:
@@ -847,7 +854,7 @@ high_vram: uses Accelerate to load weights to GPU, slightly faster model loading
         print("Loading weights to: ", device)
         mm.unload_all_models()
 
-        SUPIR_MODEL_PATH = folder_paths.get_full_path("checkpoints", supir_model)
+        SUPIR_MODEL_PATH = folder_paths.get_full_path(context, "checkpoints", supir_model)
 
         config_path = os.path.join(script_directory, "options/SUPIR_v0.yaml")
         clip_config_path = os.path.join(script_directory, "configs/clip_vit_config.json")
@@ -986,13 +993,13 @@ high_vram: uses Accelerate to load weights to GPU, slightly faster model loading
     
 class SUPIR_model_loader_v2_clip:
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(s, context: execution_context.ExecutionContext):
         return {"required": {
             "model" :("MODEL",),
             "clip_l": ("CLIP",),
             "clip_g": ("CLIP",),
             "vae": ("VAE",),
-            "supir_model": (folder_paths.get_filename_list("checkpoints"),),
+            "supir_model": (folder_paths.get_filename_list(context, "checkpoints"),),
             "fp8_unet": ("BOOLEAN", {"default": False}),
             "diffusion_dtype": (
                     [
@@ -1006,6 +1013,9 @@ class SUPIR_model_loader_v2_clip:
             },
             "optional": {
                 "high_vram": ("BOOLEAN", {"default": False}),
+            },
+            "hidden": {
+                "context": "EXECUTION_CONTEXT"
             }
         }
 
@@ -1021,7 +1031,7 @@ fp8_unet casts the unet weights to torch.float8_e4m3fn, which saves a lot of VRA
 high_vram: uses Accelerate to load weights to GPU, slightly faster model loading.
 """
 
-    def process(self, supir_model, diffusion_dtype, fp8_unet, model, clip_l, clip_g, vae, high_vram=False):
+    def process(self, supir_model, diffusion_dtype, fp8_unet, model, clip_l, clip_g, vae, high_vram=False, context: execution_context.ExecutionContext = None):
         if high_vram:
             device = mm.get_torch_device()
         else:
@@ -1029,7 +1039,7 @@ high_vram: uses Accelerate to load weights to GPU, slightly faster model loading
         print("Loading weights to: ", device)
         mm.unload_all_models()
 
-        SUPIR_MODEL_PATH = folder_paths.get_full_path("checkpoints", supir_model)
+        SUPIR_MODEL_PATH = folder_paths.get_full_path(context, "checkpoints", supir_model)
 
         config_path = os.path.join(script_directory, "options/SUPIR_v0.yaml")
         clip_config_path = os.path.join(script_directory, "configs/clip_vit_config.json")

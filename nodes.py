@@ -4,6 +4,7 @@ from torch.nn import functional as F
 from omegaconf import OmegaConf
 import comfy.utils
 import comfy.model_management as mm
+import execution_context
 import folder_paths
 from nodes import ImageScaleBy
 from nodes import ImageScale
@@ -75,10 +76,10 @@ class SUPIR_Upscale:
     upscale_methods = ["nearest-exact", "bilinear", "area", "bicubic", "lanczos"]
 
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(s, context: execution_context.ExecutionContext):
         return {"required": {
-            "supir_model": (folder_paths.get_filename_list("checkpoints"),),
-            "sdxl_model": (folder_paths.get_filename_list("checkpoints"),),
+            "supir_model": (folder_paths.get_filename_list(context, "checkpoints"),),
+            "sdxl_model": (folder_paths.get_filename_list(context, "checkpoints"),),
             "image": ("IMAGE",),
             "seed": ("INT", {"default": 123, "min": 0, "max": 0xffffffffffffffff, "step": 1}),
             "resize_method": (s.upscale_methods, {"default": "lanczos"}),
@@ -138,6 +139,9 @@ class SUPIR_Upscale:
                     ], {
                         "default": 'RestoreEDMSampler'
                     }),
+            },
+            "hidden": {
+                "context": "EXECUTION_CONTEXT"
             }
         }
 
@@ -151,12 +155,13 @@ class SUPIR_Upscale:
                 encoder_tile_size_pixels, decoder_tile_size_latent,
                 control_scale, cfg_scale_start, control_scale_start, restoration_scale, keep_model_loaded,
                 a_prompt, n_prompt, sdxl_model, supir_model, use_tiled_vae, use_tiled_sampling=False, sampler_tile_size=128, sampler_tile_stride=64, captions="", diffusion_dtype="auto",
-                encoder_dtype="auto", batch_size=1, fp8_unet=False, fp8_vae=False, sampler="RestoreEDMSampler"):
+                encoder_dtype="auto", batch_size=1, fp8_unet=False, fp8_vae=False, sampler="RestoreEDMSampler",
+                context: execution_context.ExecutionContext=None):
         device = mm.get_torch_device()
         mm.unload_all_models()
 
-        SUPIR_MODEL_PATH = folder_paths.get_full_path("checkpoints", supir_model)
-        SDXL_MODEL_PATH = folder_paths.get_full_path("checkpoints", sdxl_model)
+        SUPIR_MODEL_PATH = folder_paths.get_full_path(context, "checkpoints", supir_model)
+        SDXL_MODEL_PATH = folder_paths.get_full_path(context, "checkpoints", sdxl_model)
 
         config_path = os.path.join(script_directory, "options/SUPIR_v0.yaml")
         config_path_tiled = os.path.join(script_directory, "options/SUPIR_v0_tiled.yaml")
