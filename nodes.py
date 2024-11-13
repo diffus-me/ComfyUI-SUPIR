@@ -151,6 +151,17 @@ class SUPIR_Upscale:
 
     CATEGORY = "SUPIR"
 
+    @classmethod
+    def VALIDATE_INPUTS(cls, steps, image, color_fix_type, seed, scale_by, cfg_scale, resize_method, s_churn, s_noise,
+                encoder_tile_size_pixels, decoder_tile_size_latent,
+                control_scale, cfg_scale_start, control_scale_start, restoration_scale, keep_model_loaded,
+                a_prompt, n_prompt, sdxl_model, supir_model, use_tiled_vae, use_tiled_sampling=False, sampler_tile_size=128, sampler_tile_stride=64, captions="", diffusion_dtype="auto",
+                encoder_dtype="auto", batch_size=1, fp8_unet=False, fp8_vae=False, sampler="RestoreEDMSampler",
+                context: execution_context.ExecutionContext=None):
+        context.validate_model("checkpoints", supir_model)
+        context.validate_model("checkpoints", sdxl_model)
+        return True
+
     def process(self, steps, image, color_fix_type, seed, scale_by, cfg_scale, resize_method, s_churn, s_noise,
                 encoder_tile_size_pixels, decoder_tile_size_latent,
                 control_scale, cfg_scale_start, control_scale_start, restoration_scale, keep_model_loaded,

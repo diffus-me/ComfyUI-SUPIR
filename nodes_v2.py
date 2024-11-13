@@ -29,6 +29,12 @@ from transformers import (
 
 )
 script_directory = os.path.dirname(os.path.abspath(__file__))
+# supir
+if "supir" not in folder_paths.folder_names_and_paths:
+    current_paths = [os.path.join(folder_paths.models_dir, "supir")]
+else:
+    current_paths, _ = folder_paths.folder_names_and_paths["supir"]
+folder_paths.folder_names_and_paths["supir"] = (current_paths, folder_paths.supported_pt_extensions)
 
 def dummy_build_vision_tower(*args, **kwargs):
     # Monkey patch the CLIP class before you create an instance.
@@ -181,6 +187,9 @@ class SUPIR_decode:
             "latents": ("LATENT",),
             "use_tiled_vae": ("BOOLEAN", {"default": True}),
             "decoder_tile_size": ("INT", {"default": 512, "min": 64, "max": 8192, "step": 64}),
+            },
+            "hidden": {
+                "context": "EXECUTION_CONTEXT",
             }
         }
 
@@ -189,7 +198,7 @@ class SUPIR_decode:
     FUNCTION = "decode"
     CATEGORY = "SUPIR"
 
-    def decode(self, SUPIR_VAE, latents, use_tiled_vae, decoder_tile_size):
+    def decode(self, SUPIR_VAE, latents, use_tiled_vae, decoder_tile_size, context: execution_context.ExecutionContext):
         device = mm.get_torch_device()
         mm.unload_all_models()
         samples = latents["samples"]
@@ -387,6 +396,9 @@ class SUPIR_sample:
             "optional": {
                 "sampler_tile_size": ("INT", {"default": 1024, "min": 64, "max": 4096, "step": 32}),
                 "sampler_tile_stride": ("INT", {"default": 512, "min": 32, "max": 2048, "step": 32}),
+            },
+            "hidden": {
+                "context": "EXECUTION_CONTEXT"
             }
         }
 
@@ -431,7 +443,8 @@ SUPIR Tiles -node for preview to understand how the image is tiled.
 
     def sample(self, SUPIR_model, latents, steps, seed, cfg_scale_end, EDM_s_churn, s_noise, positive, negative,
                 cfg_scale_start, control_scale_start, control_scale_end, restore_cfg, keep_model_loaded, DPMPP_eta,
-                sampler, sampler_tile_size=1024, sampler_tile_stride=512):
+                sampler, sampler_tile_size=1024, sampler_tile_stride=512,
+               context: execution_context.ExecutionContext=None):
         
         torch.manual_seed(seed)
         device = mm.get_torch_device()
@@ -655,7 +668,7 @@ class SUPIR_model_loader:
     @classmethod
     def INPUT_TYPES(s, context: execution_context.ExecutionContext):
         return {"required": {
-            "supir_model": (folder_paths.get_filename_list(context, "checkpoints"),),
+            "supir_model": (folder_paths.get_filename_list(context, "supir"),),
             "sdxl_model": (folder_paths.get_filename_list(context, "checkpoints"),),
             "fp8_unet": ("BOOLEAN", {"default": False}),
             "diffusion_dtype": (
@@ -682,11 +695,17 @@ Old loader, not recommended to be used.
 Loads the SUPIR model and the selected SDXL model and merges them.
 """
 
+    @classmethod
+    def VALIDATE_INPUTS(cls, supir_model, sdxl_model, diffusion_dtype, fp8_unet, context: execution_context.ExecutionContext=None):
+        context.validate_model("supir", supir_model)
+        context.validate_model("checkpoints", sdxl_model)
+        return True
+
     def process(self, supir_model, sdxl_model, diffusion_dtype, fp8_unet, context: execution_context.ExecutionContext=None):
         device = mm.get_torch_device()
         mm.unload_all_models()
 
-        SUPIR_MODEL_PATH = folder_paths.get_full_path(context, "checkpoints", supir_model)
+        SUPIR_MODEL_PATH = folder_paths.get_full_path(context, "supir", supir_model)
         SDXL_MODEL_PATH = folder_paths.get_full_path(context, "checkpoints", sdxl_model)
 
         config_path = os.path.join(script_directory, "options/SUPIR_v0.yaml")
@@ -814,7 +833,7 @@ class SUPIR_model_loader_v2:
             "model" :("MODEL",),
             "clip": ("CLIP",),
             "vae": ("VAE",),
-            "supir_model": (folder_paths.get_filename_list(context, "checkpoints"),),
+            "supir_model": (folder_paths.get_filename_list(context, "supir"),),
             "fp8_unet": ("BOOLEAN", {"default": False}),
             "diffusion_dtype": (
                     [
@@ -846,6 +865,11 @@ fp8_unet casts the unet weights to torch.float8_e4m3fn, which saves a lot of VRA
 high_vram: uses Accelerate to load weights to GPU, slightly faster model loading.
 """
 
+    @classmethod
+    def VALIDATE_INPUTS(cls, supir_model, diffusion_dtype, fp8_unet, model, clip, vae, high_vram=False, context: execution_context.ExecutionContext = None):
+        context.validate_model("supir", supir_model)
+        return True
+
     def process(self, supir_model, diffusion_dtype, fp8_unet, model, clip, vae, high_vram=False, context: execution_context.ExecutionContext = None):
         if high_vram:
             device = mm.get_torch_device()
@@ -854,7 +878,7 @@ high_vram: uses Accelerate to load weights to GPU, slightly faster model loading
         print("Loading weights to: ", device)
         mm.unload_all_models()
 
-        SUPIR_MODEL_PATH = folder_paths.get_full_path(context, "checkpoints", supir_model)
+        SUPIR_MODEL_PATH = folder_paths.get_full_path(context, "supir", supir_model)
 
         config_path = os.path.join(script_directory, "options/SUPIR_v0.yaml")
         clip_config_path = os.path.join(script_directory, "configs/clip_vit_config.json")
@@ -999,7 +1023,7 @@ class SUPIR_model_loader_v2_clip:
             "clip_l": ("CLIP",),
             "clip_g": ("CLIP",),
             "vae": ("VAE",),
-            "supir_model": (folder_paths.get_filename_list(context, "checkpoints"),),
+            "supir_model": (folder_paths.get_filename_list(context, "supir"),),
             "fp8_unet": ("BOOLEAN", {"default": False}),
             "diffusion_dtype": (
                     [
@@ -1031,6 +1055,11 @@ fp8_unet casts the unet weights to torch.float8_e4m3fn, which saves a lot of VRA
 high_vram: uses Accelerate to load weights to GPU, slightly faster model loading.
 """
 
+    @classmethod
+    def VALIDATE_INPUTS(cls, supir_model, diffusion_dtype, fp8_unet, model, clip_l, clip_g, vae, high_vram=False, context: execution_context.ExecutionContext = None):
+        context.validate_model("supir", supir_model)
+        return True
+
     def process(self, supir_model, diffusion_dtype, fp8_unet, model, clip_l, clip_g, vae, high_vram=False, context: execution_context.ExecutionContext = None):
         if high_vram:
             device = mm.get_torch_device()
@@ -1039,7 +1068,7 @@ high_vram: uses Accelerate to load weights to GPU, slightly faster model loading
         print("Loading weights to: ", device)
         mm.unload_all_models()
 
-        SUPIR_MODEL_PATH = folder_paths.get_full_path(context, "checkpoints", supir_model)
+        SUPIR_MODEL_PATH = folder_paths.get_full_path(context, "supir", supir_model)
 
         config_path = os.path.join(script_directory, "options/SUPIR_v0.yaml")
         clip_config_path = os.path.join(script_directory, "configs/clip_vit_config.json")
