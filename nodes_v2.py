@@ -682,6 +682,12 @@ Old loader, not recommended to be used.
 Loads the SUPIR model and the selected SDXL model and merges them.
 """
 
+    @classmethod
+    def VALIDATE_INPUTS(cls, supir_model, sdxl_model, diffusion_dtype, fp8_unet, context: execution_context.ExecutionContext=None):
+        context.validate_model("checkpoints", supir_model)
+        context.validate_model("checkpoints", sdxl_model)
+        return True
+
     def process(self, supir_model, sdxl_model, diffusion_dtype, fp8_unet, context: execution_context.ExecutionContext=None):
         device = mm.get_torch_device()
         mm.unload_all_models()
@@ -845,6 +851,11 @@ Diffusion type should be kept on auto, unless you have issues loading the model.
 fp8_unet casts the unet weights to torch.float8_e4m3fn, which saves a lot of VRAM but has slight quality impact.  
 high_vram: uses Accelerate to load weights to GPU, slightly faster model loading.
 """
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, supir_model, diffusion_dtype, fp8_unet, model, clip, vae, high_vram=False, context: execution_context.ExecutionContext = None):
+        context.validate_model("checkpoints", supir_model)
+        return True
 
     def process(self, supir_model, diffusion_dtype, fp8_unet, model, clip, vae, high_vram=False, context: execution_context.ExecutionContext = None):
         if high_vram:
@@ -1030,6 +1041,11 @@ Diffusion type should be kept on auto, unless you have issues loading the model.
 fp8_unet casts the unet weights to torch.float8_e4m3fn, which saves a lot of VRAM but has slight quality impact.  
 high_vram: uses Accelerate to load weights to GPU, slightly faster model loading.
 """
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, supir_model, diffusion_dtype, fp8_unet, model, clip_l, clip_g, vae, high_vram=False, context: execution_context.ExecutionContext = None):
+        context.validate_model("checkpoints", supir_model)
+        return True
 
     def process(self, supir_model, diffusion_dtype, fp8_unet, model, clip_l, clip_g, vae, high_vram=False, context: execution_context.ExecutionContext = None):
         if high_vram:
